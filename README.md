@@ -14,7 +14,9 @@ dataroot_lqx4: VSD4K/game/game_15s_1/DIV2K_train_LR_bicubic/X4/00001_x4.png
 ### Introduction
 Our paper __"RepCaM: Re-parameterization Content-aware Modulation\\ for Neural Video Delivery"__ has been accepted by 2023 NOSSDAV. we introduce a novel Re-parameterization Content-aware Modulation (RepCaM) method to modulate all the video chunks with an end-to-end training strategy. Our method adopts extra parallel-cascade parameters during training to fit multiple chunks while removing the additional parameters through re-parameterization during inference. Therefore, RepCaM increases no extra model size compared with the original SR model. Moreover, in order to improve the training efficiency on servers, we propose an online Video Patch Sampling (VPS) method to speed up the training convergence. We conduct extensive experiments across various SR backbones(espcn,srcnn,vdsr,edsr16,edsr32,rcan), video time length(15s-10min), and scaling factors(x2-x4) to demonstrate the advantages of our method. 
 
+<img src="./images/comp.png"> 
 
+The comparison of the (a) traditional neural video delivery method, which requires delivering the LR chunks and the corresponding DNNs and (b) our proposed Re-parameterization Content-aware Modulation framework, which only requires delivering the LR chunks with one shared re-parameterized model.
 
 ## Dependencies
 * Python >= 3.6

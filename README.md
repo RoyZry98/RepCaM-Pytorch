@@ -1,4 +1,4 @@
-# Nossdav-pytorch-NOSSDAV 2023 ACCEPT
+# RepCaM-pytorch-NOSSDAV 2023
 
 ## Introduction of dataset VSD4K and VSD4K-2023
 Our dataset VSD4K includes 6 popular categories: game, sport, dance, vlog, interview and city. Each category is consisted of various video length, including: 15s, 30s, 45s, etc. For a specific category and its specific video length, there are 3 scaling factors: x2, x3 and x4. In each file, there are HR images and its corresponding LR images. 1-n are training images , n - (n + n/10) are test images. (we select test image 1 out of 10). The VSD4K dataset can be obtained from [https://pan.baidu.com/s/14pcsC7taB4VAa3jvyw1kog] (password:u1qq) and google drive [https://drive.google.com/drive/folders/17fyX-bFc0IUp6LTIfTYU8R5_Ot79WKXC?usp=sharing]. The VSD4K-2023 dataset can be obtained from [https://pan.baidu.com/s/1mNJuKnCfYzd1q6PsyO1b8Q?pwd=d4a0] (password:d4a0)

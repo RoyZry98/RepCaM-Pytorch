@@ -91,7 +91,17 @@ CUDA_VISIBLE_DEVICES=3 python main.py --data_test DIV2K --scale {scale factor} -
 e.g.:
 CUDA_VISIBLE_DEVICES=3 python main.py --data_test DIV2K --scale 4 --model EDSR_M0 --test_only --pre_train /home/CaFM-pytorch/experiment/edsr_x2_p48_game_15s_1_seg1-3_batch64_k1_g64/model/model_rep.pt --data_range 1-150 --is15s --dir_data /home/datasets/VSD4K/game/game_15s_1 --segnum 3
 ```
-
+## Citation
+Please cite our work if you find it useful.
+```bibtex
+@inproceedings{zhang2023repcam,
+  title={RepCaM: Re-parameterization Content-aware Modulation for Neural Video Delivery},
+  author={Zhang, Rongyu and Du, Lixuan and Liu, Jiaming and Song, Congcong and Wang, Fangxin and Li, Xiaoqi and Lu, Ming and Guo, Yandong and Zhang, Shanghang},
+  booktitle={Proceedings of the 33rd Workshop on Network and Operating System Support for Digital Audio and Video},
+  pages={1--7},
+  year={2023}
+}
+```
 
 ## Acknowledgment
 

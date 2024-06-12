@@ -1,7 +1,5 @@
-# RepCaM: Re-parameterization Content-aware Modulation for Neural Video Delivery
+# RepCaM: Re-parameterization Content-aware Modulation for Neural Video Delivery [**[Arxiv]**](https://dl.acm.org/doi/pdf/10.1145/3592473.3592567)
 Rongyu Zhang, Lixuan Du*, Jiaming Liu*, Congcong Song, Fangxin Wang, Xiaoqi Li, Ming Lu, Yandong Guo, Shanghang Zhang
-
-[**[Arxiv]**](https://dl.acm.org/doi/pdf/10.1145/3592473.3592567)
 
 <img src="./images/comp.png"> 
 

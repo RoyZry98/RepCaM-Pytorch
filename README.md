@@ -1,5 +1,6 @@
-# RepCaM: Re-parameterization Content-aware Modulation for Neural Video Delivery [**[Paper]**](https://dl.acm.org/doi/pdf/10.1145/3592473.3592567)
-Rongyu Zhang, Lixuan Du*, Jiaming Liu*, Congcong Song, Fangxin Wang, Xiaoqi Li, Ming Lu, Yandong Guo, Shanghang Zhang
+# RepCaM: Re-parameterization Content-aware Modulation for Neural Video Delivery
+![Python 3.8](https://img.shields.io/badge/Python-3.8-blue)
+[![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://dl.acm.org/doi/pdf/10.1145/3592473.3592567)
 
 <img src="./images/comp.png"> 
 

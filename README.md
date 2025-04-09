@@ -98,6 +98,15 @@ CUDA_VISIBLE_DEVICES=3 python main.py --data_test DIV2K --scale 4 --model EDSR_M
 ## Citation
 Please cite our work if you find it useful.
 ```bibtex
+@article{zhang2025repcam++,
+  title={RepCaM++: Exploring Transparent Visual Prompt With Inference-Time Re-Parameterization for Neural Video Delivery},
+  author={Zhang, Rongyu and Duan, Xize and Liu, Jiaming and Du, Li and Du, Yuan and Wang, Dan and Zhang, Shanghang and Wang, Fangxin},
+  journal={IEEE Transactions on Mobile Computing},
+  year={2025},
+  publisher={IEEE}
+}
+```
+```bibtex
 @inproceedings{zhang2023repcam,
   title={RepCaM: Re-parameterization Content-aware Modulation for Neural Video Delivery},
   author={Zhang, Rongyu and Du, Lixuan and Liu, Jiaming and Song, Congcong and Wang, Fangxin and Li, Xiaoqi and Lu, Ming and Guo, Yandong and Zhang, Shanghang},

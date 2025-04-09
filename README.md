@@ -1,3 +1,12 @@
+# RepCaM++: Exploring Transparent Visual Prompt with Inference-time Re-parameterization for Neural Video Delivery
+![Python 3.8](https://img.shields.io/badge/Python-3.8-blue)
+[![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://www.computer.org/csdl/journal/tm/5555/01/10949820/25DZuw4IHTy)
+
+<img src="./images/repcam++.png"> 
+
+## News!
+The extension version of RepCaM has been accepted by Transaction on Mobile Computing!
+
 # RepCaM: Re-parameterization Content-aware Modulation for Neural Video Delivery
 ![Python 3.8](https://img.shields.io/badge/Python-3.8-blue)
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://dl.acm.org/doi/pdf/10.1145/3592473.3592567)

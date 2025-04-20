@@ -44,7 +44,9 @@ n is the total frames in a video. We select one test image out of 10 training im
 | 30s(900+95) | 6 | 1-900/901-990 | 1-150/901-915 | 151-300/916-930 | 301-450/931-945 | 451-600/946-960 | 601-750/961-975 | 751-900/976-990 | - | - | - | 
 | 45s(1350+135) | 9 | 1-1350/1351-1485 | 1-150/1351-1365 | 151-300/1366-1380 | 301-450/1381-1395 | 451-600/1396-1410 | 601-750/1411-1425 | 751-900/1426-1440 | 901-1050/1441-1455 | 1051-1200/1456-1470 | 1201-1350/1471-1485 | 
 
+### Train(version with TVP)
 
+See `example_TVP.txt`.
 
 ### Train(version without VPS)
 For simplicity, we only demonstrate how to train 'game_15s' by our method.

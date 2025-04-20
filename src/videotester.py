@@ -31,7 +31,7 @@ class VideoTester():
             total_frames = int(vidcap.get(cv2.CAP_PROP_FRAME_COUNT))
             vidwri = cv2.VideoWriter(
                 self.ckp.get_path('{}_x{}.avi'.format(self.filename, scale)),
-                cv2.VideoWriter_fourcc(*'XVID'),
+                cv2.VideoWriter_fourcc(*'XVID'), # type: ignore
                 vidcap.get(cv2.CAP_PROP_FPS),
                 (
                     int(scale * vidcap.get(cv2.CAP_PROP_FRAME_WIDTH)),

@@ -164,28 +164,6 @@ class RepBlock(nn.Module):
         bias=True ):
 
         super(RepBlock, self).__init__()
-        # m = []  #左分支
-        # n = []  #中分支，res
-        # k = [] #右分支，ident
-        # for i in range(3):
-        #     if i == 2:
-        #         m.append(conv(n_feats, n_feats, kernel_size, bias=bias))
-                
-        #     m.append(conv(n_feats, n_feats, 1, bias=bias))
-            
-            
-        # for i in range(2):
-        #     if i == 1:
-        #         n.append(conv(n_feats, n_feats, kernel_size, bias=bias))
-                
-        #     n.append(conv(n_feats, n_feats, 1, bias=bias))
-            
-        # k.append(conv(n_feats, n_feats, kernel_size, bias=bias))
-            
-            
-        # self.layer = nn.Sequential(*m)
-        # self.res = nn.Sequential(*n)
-        # self.id = nn.Sequential(*k) 
 
         
         self.conv = conv(n_feats, n_feats, kernel_size, bias=bias)
@@ -197,29 +175,57 @@ class RepBlock(nn.Module):
         self.conv_1_1 = conv(n_feats, n_feats, kernel_size, bias=bias)
 
         self.conv_2_0 = conv(n_feats, n_feats, kernel_size, bias=bias)
+        #print('not original')
 
-
-        
     def forward(self, x):
         out = self.conv_0_2(self.conv_0_1(self.conv_0_0(x)))
         out_res = self.conv_1_1(self.conv_1_0(x))
         out_id = self.conv_2_0(x)
         return (out + out_res + out_id)
+
+class RepBlock_org(nn.Module):
+    def __init__(
+        self, conv, n_feats, kernel_size, args,
+        bias=True ):
+
+        super(RepBlock_org, self).__init__()
+
+        
+        #self.conv = conv(n_feats, n_feats, kernel_size, bias=bias)
+        #self.conv_0_0 = conv(n_feats, n_feats, 1, bias=bias)
+        #self.conv_0_1 = conv(n_feats, n_feats, 1, bias=bias)
+        #self.conv_0_2 = conv(n_feats, n_feats, kernel_size, bias=bias)
+
+        #self.conv_1_0 = conv(n_feats, n_feats, 1, bias=bias)
+        #self.conv_1_1 = conv(n_feats, n_feats, kernel_size, bias=bias)
+
+        self.conv_2_0 = conv(n_feats, n_feats, kernel_size, bias=bias)
+        #print("orange")
+
+
+        
+    def forward(self, x):
+        #out_long = self.conv_0_2(self.conv_0_1(self.conv_0_0(x)))
+        #out_mid = self.conv_1_1(self.conv_1_0(x))
+        out_short = self.conv_2_0(x)
+        return (out_short + 0)
     
 class ResBlock_org(nn.Module):
     def __init__(
         self, conv, n_feats, kernel_size, args,
-        bias=True, bn=True, act=nn.ReLU(True), res_scale=1):
+        bias=True, bn=True, act=nn.ReLU(True), res_scale=1, org=False):
 
         super(ResBlock_org, self).__init__()
         m = []
         for i in range(2):
-            m.append(RepBlock(conv, n_feats, kernel_size, args, bias=True))
+            if org:
+                m.append(RepBlock_org(conv, n_feats, kernel_size, args, bias=True))
+            else:
+                m.append(RepBlock(conv, n_feats, kernel_size, args, bias=True))
             # if bn:
             #     m.append(ContentAwareFM(n_feats,7))  # the filter size of cafm during finetune. 1 | 3 | 5 | 7
             if i == 0:
                 m.append(act)
-
         self.body = nn.Sequential(*m)
         self.res_scale = res_scale 
     

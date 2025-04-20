@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+import argparse
 
 def transII_addbranch(kernels, biases):
     return sum(kernels), sum(biases)
@@ -57,9 +58,12 @@ def reparameter(model,list1, list2, list3):
 
     return k_012, b_012
 
+parser = argparse.ArgumentParser(description='PyTorch EDSR')
+parser.add_argument('--model_folder', type=str, default='experiment/model', help='model folder to use')
 
-model_path = "../model/model_best.pt"
-model_outpath = "../model/model_rep.pt"
+model_folder = parser.parse_args().model_folder
+model_path = model_folder + '/model_best.pt'
+model_outpath = model_folder + '/model_rep.pt'
 
 model = torch.load(model_path)
 # print(model.keys())

@@ -14,6 +14,23 @@ import pdb
 torch.manual_seed(args.seed)
 checkpoint = utility.checkpoint(args)
 
+def get_model_size(model):
+    param_count = sum(p.numel() for p in model.parameters())
+    
+    param_size = param_count * 4 / (1024 * 1024)
+    
+    return {
+        'parameters': param_count,
+        'size_mb': param_size
+    }
+
+def print_param_info(model):
+    for name, param in model.named_parameters():
+        print(f"Parameter: {name}")
+        print(f"Type: {param.dtype}")
+        print(f"Shape: {param.shape}")
+        print("-" * 50)
+
 def main():
     global model
     if args.data_test == ['video']:
@@ -26,8 +43,8 @@ def main():
             #pdb.set_trace()
             loader = data.Data(args)
             _model = model.Model(args, checkpoint)
-            print(_model.state_dict().keys())
             _loss = loss.Loss(args, checkpoint) if not args.test_only else None
+            print(get_model_size(_model))
             if args.cafm:
                 t = Trainer_cafm(args, loader, _model, _loss, checkpoint)
             else:

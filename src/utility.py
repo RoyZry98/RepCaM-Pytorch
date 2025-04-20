@@ -13,6 +13,7 @@ import numpy as np
 import imageio
 
 import torch
+import lpips
 import torch.optim as optim
 import torch.optim.lr_scheduler as lrs
 class timer():
@@ -46,6 +47,9 @@ class checkpoint():
         self.ok = True
         self.log = torch.Tensor()
         now = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+        print("save:", args.save)
+        print("load:", args.load)
+        #exit()
 
         if not args.load:
             if not args.save:
@@ -89,6 +93,13 @@ class checkpoint():
         self.plot_psnr(epoch)
         trainer.optimizer.save(self.dir)
         torch.save(self.log, self.get_path('psnr_log.pt'))
+
+    def save_patch(self, patch, epoch, is_best=False, idx=0):
+        path = self.get_path('model/patches/')
+        if not os.path.exists(path):
+            os.makedirs(path)
+        torch.save(patch.state_dict(), self.get_path('model/patches/') + f"patch_{idx}.pt")
+        #model.save(self.get_path('model/patches'), epoch, is_best=is_best, idx=idx)
     
     def save_everyepoch(self, trainer, epoch, is_best=False):
         save_path = self.get_path('model')+"/" + str(epoch)
@@ -101,7 +112,7 @@ class checkpoint():
 
     def write_log(self, log, refresh=False):
         print(log)
-        self.log_file.write(log + '\n')
+        self.log_file.write(str(log) + '\n')
         if refresh:
             self.log_file.close()
             self.log_file = open(self.get_path('log.txt'), 'a')
@@ -156,6 +167,7 @@ class checkpoint():
                 'results-{}'.format(dataset.dataset.name),
                 '{}_x{}_'.format(filename, scale)
             )
+            print(filename)
 
             postfix = ('SR', 'LR', 'HR')
             for v, p in zip(save_list, postfix):
@@ -184,6 +196,34 @@ def calc_psnr(sr, hr, scale, rgb_range, dataset=None):
     if mse==0:
         return 1000
     return -10 * math.log10(mse)
+
+lpips_values = []
+loss_fn = lpips.LPIPS(net='alex')
+def calc_lpips(sr, hr):
+    global lpips_values
+    sr.to(hr.device)
+    
+    for sr_img, hr_img in zip(sr, hr):
+        lpips_value = loss_fn(sr_img.cpu(), hr_img.cpu())
+        lpips_values.append(lpips_value.item())
+    
+    average_lpips = sum(lpips_values) / len(lpips_values)
+    print("Average lpips:", average_lpips)
+    return average_lpips
+
+import skimage.metrics
+ssim_values = []
+def calc_ssim(sr, hr):
+    global ssim_values
+    for sr_img, hr_img in zip(sr, hr):
+        sr_img_np = sr_img.permute(1, 2, 0).cpu().numpy()
+        hr_img_np = hr_img.permute(1, 2, 0).cpu().numpy()
+        ssim_value = skimage.metrics.structural_similarity(sr_img_np, hr_img_np, multichannel=True)
+        ssim_values.append(ssim_value)
+    
+    average_ssim = sum(ssim_values) / len(ssim_values)
+    print("Average SSIM:", average_ssim)
+    return average_ssim
 
 def make_optimizer(args, target):
     '''
@@ -247,6 +287,68 @@ def make_optimizer(args, target):
     optimizer._register_scheduler(scheduler_class, **kwargs_scheduler)
     return optimizer
 
+def make_patch_optimizer(args, target):
+    '''
+        make optimizer and scheduler together
+    '''
+    # optimizer
+    if args.cafm:
+        if args.finetune:
+            trainable = [{'params':[ param for name, param in target.named_parameters() if 'transformer' in name or 'gamma' in name]}]
+        else:
+            trainable = filter(lambda x: x.requires_grad, target.parameters())
+    else:
+        trainable = filter(lambda x: x.requires_grad, target.parameters())
+        
+    kwargs_optimizer = {'lr': args.patch_lr, 'weight_decay': args.weight_decay}
+
+    if args.optimizer == 'SGD':
+        optimizer_class = optim.SGD
+        kwargs_optimizer['momentum'] = args.patch_momentum
+    elif args.optimizer == 'ADAM':
+        optimizer_class = optim.Adam
+        kwargs_optimizer['betas'] = args.patch_betas
+        kwargs_optimizer['eps'] = args.patch_epsilon
+    elif args.optimizer == 'RMSprop':
+        optimizer_class = optim.RMSprop
+        kwargs_optimizer['eps'] = args.patch_epsilon
+
+    # scheduler
+    milestones = list(map(lambda x: int(x), args.decay.split('-')))
+    kwargs_scheduler = {'milestones': milestones, 'gamma': args.gamma}
+    scheduler_class = lrs.MultiStepLR
+
+    class CustomOptimizer(optimizer_class):
+        def __init__(self, *args, **kwargs):
+            super(CustomOptimizer, self).__init__(*args, **kwargs)
+
+        def _register_scheduler(self, scheduler_class, **kwargs):
+            self.scheduler = scheduler_class(self, **kwargs)
+
+        def save(self, save_dir):
+            torch.save(self.state_dict(), self.get_dir(save_dir))
+
+        def load(self, load_dir, epoch=1):
+            self.load_state_dict(torch.load(self.get_dir(load_dir)))
+            if epoch > 1:
+                for _ in range(epoch): self.scheduler.step()
+
+        def get_dir(self, dir_path):
+            return os.path.join(dir_path, 'optimizer.pt')
+
+        def schedule(self):
+            self.scheduler.step()
+
+        def get_lr(self):
+            return self.scheduler.get_lr()[0]
+
+        def get_last_epoch(self):
+            return self.scheduler.last_epoch
+    
+    optimizer = CustomOptimizer(trainable, **kwargs_optimizer)
+    optimizer._register_scheduler(scheduler_class, **kwargs_scheduler)
+    return optimizer
+
 def make_trainChunk(num, length, segnum):
     chunk = int(int(length)//int(segnum))
     t_num = [[] for i in range(segnum)]
@@ -257,55 +359,74 @@ def make_trainChunk(num, length, segnum):
     return t_num
 
 
-def make_testChunk(length, filename):
-    if length == '45s':
-        if int(filename)<=150 or 1351 <= int(filename) <= 1365:
-            flag = 0
-        elif 151 <= int(filename) <= 300 or 1366 <= int(filename) <= 1380:
-            flag = 1
-        elif 301 <= int(filename) <= 450 or 1381 <= int(filename) <= 1395:
-            flag = 2
-        elif 451 <= int(filename) <= 600 or 1396 <= int(filename) <= 1410:
-            flag = 3
-        elif 601 <= int(filename) <= 750 or 1411 <= int(filename) <= 1425:
-            flag = 4
-        elif 751 <= int(filename) <= 900 or 1426 <= int(filename) <= 1440:
-            flag = 5
-        elif 901 <= int(filename) <= 1050 or 1441 <= int(filename) <= 1455:
-            flag = 6
-        elif 1051 <= int(filename) <= 1200 or 1456 <= int(filename) <= 1470:
-            flag = 7
-        elif 1201 <= int(filename) <= 1350 or 1471 <= int(filename) <= 1485:
-            flag = 8
-        else:
-            flag = 9
-        return flag
-    elif length =='15s':
-        if 1 <= int(filename)<=150 or 451 <= int(filename) <= 465:
-            flag = 0
-        elif 151 <= int(filename) <= 300 or 466 <= int(filename) <= 480:
-            flag = 1
-        elif 301 <= int(filename) <= 450 or 481 <= int(filename) <= 495:
-            flag = 2
-        else:
-            flag = 3 
-        return flag
-    elif length == '30s':
-        if int(filename)<=150 or 901 <= int(filename) <= 915:
-            flag = 0
-        elif 151 <= int(filename) <= 300 or 916 <= int(filename) <= 930:
-            flag = 1
-        elif 301 <= int(filename) <= 450 or 931 <= int(filename) <= 945:
-            flag = 2
-        elif 451 <= int(filename) <= 600 or 946 <= int(filename) <= 960:
-            flag = 3
-        elif 601 <= int(filename) <= 750 or 961 <= int(filename) <= 975:
-            flag = 4
-        elif 751 <= int(filename) <= 900 or 976 <= int(filename) <= 990:
-            flag = 5
-        else:
-            flag = 6 
-        return flag
-
-
-
+def make_testChunk(length, filename, segnum=3, fps=30):
+    if segnum == 3:
+        if length == '45s':
+            if int(filename)<=150 or 1351 <= int(filename) <= 1365:
+                flag = 0
+            elif 151 <= int(filename) <= 300 or 1366 <= int(filename) <= 1380:
+                flag = 1
+            elif 301 <= int(filename) <= 450 or 1381 <= int(filename) <= 1395:
+                flag = 2
+            elif 451 <= int(filename) <= 600 or 1396 <= int(filename) <= 1410:
+                flag = 3
+            elif 601 <= int(filename) <= 750 or 1411 <= int(filename) <= 1425:
+                flag = 4
+            elif 751 <= int(filename) <= 900 or 1426 <= int(filename) <= 1440:
+                flag = 5
+            elif 901 <= int(filename) <= 1050 or 1441 <= int(filename) <= 1455:
+                flag = 6
+            elif 1051 <= int(filename) <= 1200 or 1456 <= int(filename) <= 1470:
+                flag = 7
+            elif 1201 <= int(filename) <= 1350 or 1471 <= int(filename) <= 1485:
+                flag = 8
+            else:
+                flag = 9
+            return flag
+        elif length =='15s':
+            if 1 <= int(filename)<=150 or 451 <= int(filename) <= 465:
+                flag = 0
+            elif 151 <= int(filename) <= 300 or 466 <= int(filename) <= 480:
+                flag = 1
+            elif 301 <= int(filename) <= 450 or 481 <= int(filename) <= 495:
+                flag = 2
+            else:
+                flag = 3 
+            return flag
+        elif length == '30s':
+            if int(filename)<=150 or 901 <= int(filename) <= 915:
+                flag = 0
+            elif 151 <= int(filename) <= 300 or 916 <= int(filename) <= 930:
+                flag = 1
+            elif 301 <= int(filename) <= 450 or 931 <= int(filename) <= 945:
+                flag = 2
+            elif 451 <= int(filename) <= 600 or 946 <= int(filename) <= 960:
+                flag = 3
+            elif 601 <= int(filename) <= 750 or 961 <= int(filename) <= 975:
+                flag = 4
+            elif 751 <= int(filename) <= 900 or 976 <= int(filename) <= 990:
+                flag = 5
+            else:
+                flag = 6 
+            return flag
+    else:
+        if length == '15s':
+            seg_size = int(int(15*fps)/segnum)
+            test_seg_size = int(45/segnum)
+            flag = None
+            for i in range(segnum):
+                if i*seg_size <= int(filename) <= (i+1)*seg_size or 450 + i*test_seg_size <= int(filename) <= 450 + (i+1)*test_seg_size:
+                    flag = i
+                    break
+            if not flag: flag = segnum
+            return flag
+        if length == '45s':
+            seg_size = int(int(45*fps)/segnum)
+            test_seg_size = int(135/segnum)
+            flag = None
+            for i in range(segnum):
+                if i*seg_size <= int(filename) <= (i+1)*seg_size or 1365 + i*test_seg_size <= int(filename) <= 1365 + (i+1)*test_seg_size:
+                    flag = i
+                    break
+            if not flag: flag = segnum
+            return flag

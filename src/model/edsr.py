@@ -22,13 +22,14 @@ def make_model(args, parent=False):
 class EDSR(nn.Module):
     def __init__(self, args, conv=common.default_conv):
         super(EDSR, self).__init__()
-
+        #args.n_resblocks *= 30
         n_resblocks = args.n_resblocks
         self.numbers = n_resblocks
         n_feats = args.n_feats
         kernel_size = 3 
         scale = args.scale[0]
         self.cafm = args.cafm
+        self.force_no_rep = args.no_rep
         self.n_resblocks = args.n_resblocks
         act = nn.ReLU(True)
         url_name = 'r{}f{}x{}'.format(n_resblocks, n_feats, scale)
@@ -43,11 +44,14 @@ class EDSR(nn.Module):
         m_head = [conv(args.n_colors, n_feats, kernel_size)]
 
         # define body module
-        if args.cafm:
+        print(args.cafm, self.force_no_rep)
+        if args.cafm and not self.force_no_rep:
             m_body = [common.ResBlock(conv, n_feats, kernel_size, args, bn=True, act=act, res_scale=args.res_scale) for _ in range(n_resblocks)]
         else:
-            m_body = [common.ResBlock_org(conv, n_feats, kernel_size, args, act=act, res_scale=args.res_scale) for _ in range(n_resblocks)]
+            if self.force_no_rep: print("Frocing no paramtrization")
+            m_body = [common.ResBlock_org(conv, n_feats, kernel_size, args, act=act, res_scale=args.res_scale, org=self.force_no_rep) for _ in range(n_resblocks)]
         m_body.append(common.RepBlock(conv, n_feats, kernel_size, args, bias=True ))
+        #print("oijoijoijoijoijoijoijoijoijoijoij", len(m_body))
         # define tail module
         m_tail = [
             common.Upsampler(conv, scale, n_feats, kernel_size, act=False),
@@ -55,9 +59,10 @@ class EDSR(nn.Module):
         ]
 
         self.head = nn.Sequential(*m_head)
-        if args.cafm:
+        if args.cafm and not self.force_no_rep:
             self.body = nn.ModuleList(m_body)
         else:
+            if self.force_no_rep: print("Forcing no paramtrization")
             self.body = nn.Sequential(*m_body)
         self.tail = nn.Sequential(*m_tail)
 
@@ -65,7 +70,7 @@ class EDSR(nn.Module):
         x = self.sub_mean(x)
         x = self.head(x)
         #cafm
-        if self.cafm:
+        if self.cafm and not self.force_no_rep:
             res = x
             for i in range(self.numbers):
                 res = self.body[i](res, num)
@@ -73,6 +78,7 @@ class EDSR(nn.Module):
             res += x
         #original
         else:
+            #print("going original")
             res = self.body(x)
             res += x
 

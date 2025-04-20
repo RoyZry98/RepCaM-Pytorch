@@ -120,6 +120,12 @@ parser.add_argument('--weight_decay', type=float, default=0,
                     help='weight decay')
 parser.add_argument('--gclip', type=float, default=0,
                     help='gradient clipping threshold (0 = no clipping)')
+parser.add_argument('--patch_epsilon', type=float, default=1e-8,
+                    help='ADAM epsilon for numerical stability for the patch prompter')
+parser.add_argument('--patch_betas', type=tuple, default=(0.9, 0.999),
+                    help='ADAM beta for the patch prompter')
+parser.add_argument('--patch_lr', type=float, default=1e-4,  #5*1e-4
+                    help='learning rate')
 
 # Loss specifications
 parser.add_argument('--loss', type=str, default='1*L1',  #'0.5*L1+0.5*MSE'   '1*L1'  '0.5*L1+0.5*L12'
@@ -192,6 +198,18 @@ parser.add_argument('--is15s', action='store_true',
 parser.add_argument('--finetune', action='store_true',
                         help='using fintuning')
 
+parser.add_argument('--chunked', action='store_true', 
+                        default=False,)
+
+parser.add_argument('--chunk_size', type=int, default=1,)
+
+parser.add_argument('--std', type=float, default=1)
+
+parser.add_argument('--prompt_size', type=int, default=12)
+
+parser.add_argument('--patch_load', type=str, default='')
+
+parser.add_argument('--no_rep', action='store_true', default=False,)
 
 args = parser.parse_args()
 template.set_template(args)

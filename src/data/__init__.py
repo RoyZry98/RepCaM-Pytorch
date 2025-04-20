@@ -3,12 +3,15 @@ from importlib import import_module
 from torch.utils.data import dataloader
 from torch.utils.data import ConcatDataset
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 # This is a simple wrapper function for ConcatDataset
 class MyConcatDataset(ConcatDataset):
     def __init__(self, datasets):
         super(MyConcatDataset, self).__init__(datasets)
         self.train = datasets[0].train
-        print(self.train)
+        print("=====================")
 
     def set_scale(self, idx_scale):
         for d in self.datasets:
@@ -21,16 +24,27 @@ class Data:
             datasets = []
             for d in args.data_train:
                 module_name = d if d.find('DIV2K-Q') < 0 else 'DIV2KJPEG'
-                m = import_module('data.' + module_name.lower())
+                m = import_module('data.' + module_name.lower()) #求求你们了，多写一个if不会死
                 datasets.append(getattr(m, module_name)(args, name=d))
+            if not args.chunked:
+                self.loader_train = dataloader.DataLoader(
+                    MyConcatDataset(datasets),
+                    batch_size=args.batch_size,
+                    shuffle=False,
+                    pin_memory=not args.cpu,
+                    num_workers=args.n_threads,
+                )
+            else:
+                self.loader_train = dataloader.DataLoader(
+                    MyConcatDataset(datasets),
+                    batch_size=args.chunk_size,
+                    shuffle=False,
+                    pin_memory=not args.cpu,
+                    num_workers=args.n_threads,
+                )
+                print(len(self.loader_train))
 
-            self.loader_train = dataloader.DataLoader(
-                MyConcatDataset(datasets),
-                batch_size=args.batch_size,
-                shuffle=True,
-                pin_memory=not args.cpu,
-                num_workers=args.n_threads,
-            )
+
 
         self.loader_test = []
         for d in args.data_test:

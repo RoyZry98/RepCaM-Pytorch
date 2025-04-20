@@ -1,0 +1,7 @@
+*.png
+*.txt
+**experiment**/
+**/vsd**/
+**/**__pycache__**/
+*.pyc
+lol*/

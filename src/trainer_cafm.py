@@ -11,10 +11,10 @@ import sys
 import numpy as np
 import cv2 as cv
 import imageio
-
+from model.fix_patch_prompt import FixedPatchPrompter_image
 
 class Trainer_cafm():
-    def __init__(self, args, loader, my_model, my_loss, ckp):
+    def __init__(self, args, loader, my_model, my_loss, ckp: utility.checkpoint):
         self.args = args
         self.scale = args.scale
         
@@ -25,8 +25,32 @@ class Trainer_cafm():
         self.loss = my_loss
         self.optimizer = utility.make_optimizer(args, self.model)
 
+        self.patch = FixedPatchPrompter_image(prompt_size = args.prompt_size, std = args.std).cuda()
+        self.patch_optimizer = utility.make_patch_optimizer(args, self.patch)
+
+        if args.use_cafm:
+            self.patch = [FixedPatchPrompter_image(prompt_size = args.prompt_size, std = args.std).cuda() 
+                          for i in range(args.segnum + 1)]
+            self.patch_optimizer = [utility.make_patch_optimizer(args, self.patch[i]) 
+                                    for i in range(args.segnum + 1)]
+
         if self.args.load != '':
             self.optimizer.load(ckp.dir, epoch=len(ckp.log))
+        
+        if self.args.use_cafm:
+            if args.patch_load != '':
+                print()
+                print(args.patch_load)
+                path = args.patch_load
+                for i in range(args.segnum + 1):
+                    patch_checkpoint_path = os.path.join(path, f'patch_{i}.pt')
+                    if os.path.exists(patch_checkpoint_path):
+                        checkpoint = torch.load(patch_checkpoint_path)
+                        self.patch[i].load_state_dict(checkpoint)
+                        #self.patch_optimizer[i].load_state_dict(checkpoint['optimizer'])
+                        print(f"patch{i} loaded")
+                    else:
+                        print(patch_checkpoint_path + " not exists")
 
         self.error_last = 1e8
 
@@ -35,9 +59,13 @@ class Trainer_cafm():
         self.loss.step()
         epoch = self.optimizer.get_last_epoch() + 1
         lr = self.optimizer.get_lr()
+        plr = self.patch_optimizer[0].get_lr()
 
         self.ckp.write_log(
             '[Epoch {}]\tLearning rate: {:.2e}'.format(epoch, Decimal(lr))
+        )
+        self.ckp.write_log(
+            '[Epoch {}]\tPatch learning rate: {:.2e}'.format(epoch, Decimal(plr))
         )
         self.loss.start_log()
         self.model.train()
@@ -53,20 +81,27 @@ class Trainer_cafm():
             timer_model.tic()
 
             self.optimizer.zero_grad()
+            if self.args.use_cafm:
+                for opt in self.patch_optimizer:
+                    opt.zero_grad()
             #use_cafm
             if self.args.use_cafm:
                 t_num = utility.make_trainChunk(num, length, segnum)
                 numlist = [(t_num[i],i)for i in range(segnum)]
+                #print(numlist)
                 loss = 0
                 for i in numlist:
                     if len(i[0])!=0:
-                        sr = self.model(lr[i[0]], 0, i[1])
+                        pre_sr = self.patch[i[1]](lr[i[0]])
+                        sr = self.model(pre_sr, 0, i[1])
                         loss += self.loss(sr, hr[i[0]])*len(i[0])
                 loss = loss/len(num)
-            
+            elif self.args.chunked:
+                sr = self.model(lr, 0, np.array(num).astype(int))
+                loss = self.loss(sr, hr)
             #baseline
             else:
-                sr = self.model(lr, 0, num)
+                sr = self.model(self.patch(lr), 0, num)
                 loss = self.loss(sr, hr)
 
             loss.backward()
@@ -76,6 +111,11 @@ class Trainer_cafm():
                     self.args.gclip
                 )
             self.optimizer.step()
+            if self.args.use_cafm:
+                for opt in self.patch_optimizer:
+                    opt.step()
+            else:
+                self.patch_optimizer.step()
 
             timer_model.hold()
 
@@ -89,10 +129,17 @@ class Trainer_cafm():
                     timer_data.release()))
 
             timer_data.tic()
+            print(f"Allocated memory: {torch.cuda.memory_allocated()} bytes")
+            print(f"Reserved memory: {torch.cuda.memory_reserved()} bytes")
 
         self.loss.end_log(len(self.loader_train))
         self.error_last = self.loss.log[-1, -1]
         self.optimizer.schedule()
+        if self.args.use_cafm:
+            for opt in self.patch_optimizer:
+                opt.schedule()
+        else:
+            self.patch_optimizer.step()
 
     def test(self):
 
@@ -129,7 +176,11 @@ class Trainer_cafm():
                         flag = utility.make_testChunk('15s', filename[0])
                     elif self.args.is30s:
                         flag = utility.make_testChunk('30s', filename=[0])
-                    sr = self.model(lr, idx_scale, flag)
+                    
+                    if self.args.use_cafm:
+                        sr = self.model(self.patch[flag](lr), idx_scale, flag)
+                    else:
+                        sr = self.model(self.patch(lr), idx_scale, flag)
                     # print(sr.shape)
 
 
@@ -156,6 +207,9 @@ class Trainer_cafm():
                     sr = utility.quantize(sr, self.args.rgb_range)
                     save_list = [sr]
 
+                    #utility.calc_lpips(sr, hr)
+                    #utility.calc_ssim(sr, hr)
+
                     # save_list = [low_hr]
 
                     self.ckp.log[-1, idx_data, idx_scale] += utility.calc_psnr(
@@ -164,7 +218,7 @@ class Trainer_cafm():
                     if self.args.save_gt:
                         save_list.extend([lr, hr])
 
-                    if self.args.save_results:
+                    if self.args.save_results: 
                         self.ckp.save_results(d, filename[0], save_list, scale)
 
                 self.ckp.log[-1, idx_data, idx_scale] /= len(d)
@@ -181,13 +235,26 @@ class Trainer_cafm():
 
         self.ckp.write_log('Forward: {:.2f}s\n'.format(timer_test.toc()))
         self.ckp.write_log('Saving...')
+        if not self.args.use_cafm: 
+            self.ckp.write_log(f"Mean of the patch prompt: {torch.mean(self.patch.patch)}, Std: {torch.std(self.patch.patch)}")
+        else:
+            for idx, patch in enumerate(self.patch):
+                self.ckp.write_log(f"Mean of the patch prompt seg {idx}: {torch.mean(patch.patch)}, Std: {torch.std(patch.patch)}")
 
+        
         if self.args.save_results:
             self.ckp.end_background()
 
         if not self.args.test_only:
             self.ckp.save(self, epoch, is_best=(best[1][0, 0] + 1 == epoch))
             #self.ckp.save_everyepoch(self, epoch, is_best=True)
+            if best[1][0, 0] + 1 == epoch:
+                for i, model in enumerate(self.patch):
+                    self.ckp.save_patch(model, epoch, is_best=True, idx=i)
+            elif epoch % 40 == 0:
+                for i, model in enumerate(self.patch):
+                    self.ckp.save_patch(model, epoch, is_best=True, idx=f"epo_{epoch}_{i}")
+
 
         self.ckp.write_log(
             'Total: {:.2f}s\n'.format(timer_test.toc()), refresh=True

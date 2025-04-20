@@ -91,7 +91,8 @@ class SRData(data.Dataset):
     def _check_and_load(self, ext, img, f, verbose=True):
         if not os.path.isfile(f) or ext.find('reset') >= 0:
             if verbose:
-                print('Making a binary: {}'.format(f))
+                print('\rMaking a binary: {}'.format(f), end='')
+            print()
             with open(f, 'wb') as _f:
                 pickle.dump(imageio.imread(img), _f)
 

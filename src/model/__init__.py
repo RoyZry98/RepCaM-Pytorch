@@ -6,6 +6,8 @@ import torch.nn as nn
 import torch.nn.parallel as P
 import torch.utils.model_zoo
 
+#from .fix_patch_prompt import FixedPatchPrompter_image, FixedPatchPrompter_feature
+
 class Model(nn.Module):
     def __init__(self, args, ckp):
         super(Model, self).__init__()
@@ -54,6 +56,7 @@ class Model(nn.Module):
                 '''
                 return self.model(x, seg_flag)
                 '''
+
                 return self.model(x, num)
         else:
             if self.chop:

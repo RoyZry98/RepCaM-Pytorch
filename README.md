@@ -7,6 +7,34 @@
 ## News!
 The extension version of RepCaM has been accepted by Transaction on Mobile Computing!
 
+* __For training RepCaM++ model__: 
+```
+cd src
+CUDA_VISIBLE_DEVICES=3 python main.py \
+    --model EDSR \
+    --scale 2 \
+    --n_resblocks 16 \
+    --patch_size 48 \
+    --save edsr_sport_lr5e-5_chunked --patch_lr 5e-5 --reset --data_train DIV2K --data_test DIV2K --data_range 1-450/451-495 \
+    --dir_data /dir/to/data \
+    --batch_size 64 \
+    --epoch 600 \
+    --decay 300 \
+    --segnum 9 --is45s --use_cafm --std 0.1
+```
+
+* __For testing RepCaM++ model__: 
+```
+python reparameter_edsr.py --model_folder experiment/edsr_dance_lr5e-5_chunked/model --n_res_blocks 16
+CUDA_VISIBLE_DEVICES=1 python main.py --data_test DIV2K --scale 2 --model EDSR_M0 \
+ --test_only --save_gt --save_results --save edsr_dance_lr5e-5_chunked \
+ --pre_train /home/rongyu/2opt/experiment/edsr_dance_lr5e-5_chunked/model/model_rep.pt \
+ --data_range 1-450 --is45s --dir_data /home/rongyu/dataset/vsd4k/dance_45s_1 \
+ --segnum 9 --use_cafm \
+ --patch_load /home/rongyu/2opt/experiment/edsr_dance_lr5e-5_chunked/model/patches\
+ --n_resblocks 16
+```
+
 # RepCaM: Re-parameterization Content-aware Modulation for Neural Video Delivery
 ![Python 3.8](https://img.shields.io/badge/Python-3.8-blue)
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://dl.acm.org/doi/pdf/10.1145/3592473.3592567)
